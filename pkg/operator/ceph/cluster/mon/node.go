@@ -21,6 +21,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+const CephPublicIP = "ceph.rook/PublicIP"
+
 // NodeUsage is a mapping between a Node and computed metadata about the node
 // that is used in monitor pod scheduling.
 type NodeUsage struct {
@@ -51,11 +53,16 @@ func getNodeInfoFromNode(n v1.Node) (*NodeInfo, error) {
 		Hostname: n.Labels[v1.LabelHostname],
 	}
 
-	for _, ip := range n.Status.Addresses {
-		if ip.Type == v1.NodeInternalIP {
-			logger.Debugf("using internal IP %s for node %s", ip.Address, n.Name)
-			nr.Address = ip.Address
-			break
+	if publicIP, found := n.Annotations[CephPublicIP]; found {
+		logger.Debugf("Found ceph PublicIP annotation %s for node %s", publicIP, n.Name)
+		nr.Address = publicIP
+	} else {
+		for _, ip := range n.Status.Addresses {
+			if ip.Type == v1.NodeInternalIP {
+				logger.Debugf("using internal IP %s for node %s", ip.Address, n.Name)
+				nr.Address = ip.Address
+				break
+			}
 		}
 	}
 	if nr.Address == "" {
